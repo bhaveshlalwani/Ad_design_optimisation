@@ -4,7 +4,7 @@ data <- data.frame(data)
 str(data)
 
 
-#Loreal's variables
+#X's variables
 
 a <- data%>%select(brand, brand_size)%>%filter(brand == "X")%>%summarise(mean = mean(brand_size), sd = sd(brand_size), MAX = max(brand_size), Min = min(brand_size), nf = quantile(brand_size, probs = 0.95))
 
@@ -35,6 +35,7 @@ summary(model1)
 model2 <- glm(pic_fix ~ brand_size+ pic_size+ page_pos+ page_num+ quad, poisson(link = "log"),data = data)
 summary(model2)
 
+#Adding predicted values of Brand and Picture fixation basis the above models
 data$bf <- predict(model1, data)
 data$pf <- predict(model2, data)
 
@@ -43,7 +44,7 @@ model3 <- glm(recall_accu ~ bf+pf page_pos+ page_num + quad ,binomial(link = "lo
 summary(model3)
 data$RA <- predict(model3, data)
 
-#Loreal compared to other similar brands
+#X compared to other similar brands
 p <-  data%>%select(brand, RECALL_TIME, page_pos, page_num, bf, pf, RA)%>%filter(brand == "X" | brand == "a" | brand == "bb" | brand == "u" | brand == "gg")%>%group_by(brand)%>%summarise(page_pos = mean(page_pos), page_num = mean(page_num) ,pic_fix = mean(pf), brand_fix = mean(bf), recall_time = mean(RECALL_TIME), prob = mean(RA))
 p
 
