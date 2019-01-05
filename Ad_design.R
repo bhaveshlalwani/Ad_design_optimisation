@@ -36,13 +36,13 @@ model2 <- glm(pic_fix ~ brand_size+ pic_size+ page_pos+ page_num+ quad, poisson(
 summary(model2)
 
 #Adding predicted values of Brand and Picture fixation basis the above models
-data$bf <- predict(model1, data)
-data$pf <- predict(model2, data)
+data$bf <- predict.glm(model1, data, type = "RESPONSE")
+data$pf <- predict.glm(model2, data, type = "RESPONSE")
 
 # RECALL_ACCU - Binary Logit Model
 model3 <- glm(recall_accu ~ bf+pf page_pos+ page_num + quad ,binomial(link = "logit"),data = data)
 summary(model3)
-data$RA <- predict(model3, data)
+data$RA <- predict.glm(model3, data, type = "RESPONSE")
 
 #X compared to other similar brands
 p <-  data%>%select(brand, RECALL_TIME, page_pos, page_num, bf, pf, RA)%>%filter(brand == "X" | brand == "a" | brand == "bb" | brand == "u" | brand == "gg")%>%group_by(brand)%>%summarise(page_pos = mean(page_pos), page_num = mean(page_num) ,pic_fix = mean(pf), brand_fix = mean(bf), recall_time = mean(RECALL_TIME), prob = mean(RA))
