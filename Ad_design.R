@@ -43,6 +43,7 @@ data$pf <- predict.glm(model2, data, type = "RESPONSE")
 model3 <- glm(recall_accu ~ bf+pf page_pos+ page_num + quad ,binomial(link = "logit"),data = data)
 summary(model3)
 data$RA <- predict.glm(model3, data, type = "RESPONSE")
+data$odds <- exp(predict.glm(model3, data))
 
 #X compared to other similar brands
 p <-  data%>%select(brand, RECALL_TIME, page_pos, page_num, bf, pf, RA)%>%filter(brand == "X" | brand == "a" | brand == "bb" | brand == "u" | brand == "gg")%>%group_by(brand)%>%summarise(page_pos = mean(page_pos), page_num = mean(page_num) ,pic_fix = mean(pf), brand_fix = mean(bf), recall_time = mean(RECALL_TIME), prob = mean(RA))
