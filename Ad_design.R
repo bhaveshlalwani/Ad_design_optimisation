@@ -1,53 +1,45 @@
 library(dplyr)
-data <- read.csv("printads.csv")
-data <- data.frame(data)
-str(data)
 
+AD_data <- read.csv("printads.csv", header = TRUE)
 
-#X's variables
+#Creating quadratic term for page number
 
-a <- data%>%select(brand, brand_size)%>%filter(brand == "X")%>%summarise(mean = mean(brand_size), sd = sd(brand_size), MAX = max(brand_size), Min = min(brand_size), nf = quantile(brand_size, probs = 0.95))
+AD_data <- AD_data %>% mutate(page_num_sqr = page_num^2)
 
-c <- data%>%select(brand, pic_size)%>%filter(brand == "X")%>%summarise(mean = mean(pic_size), sd = sd(pic_size), MAX = max(pic_size), Min = min(pic_size), nf = quantile(pic_size, probs = 0.95))
-e <- data%>%select(brand, brand_fix)%>%filter(brand == "X")%>%summarise(mean = mean(brand_fix), sd = sd(brand_fix), MAX = max(brand_fix), Min = min(brand_fix), nf = quantile(brand_fix, probs = 0.95))
-g <- data%>%select(brand, pic_fix)%>%filter(brand == "X")%>%summarise(mean = mean(pic_fix), sd = sd(pic_fix), MAX = max(pic_fix), Min = min(pic_fix), nf = quantile(pic_fix, probs = 0.95))
+#poisson regression model for picture fixation count
 
-b <- data%>%select(brand, brand_size)%>%filter(brand != "X")%>%summarise(mean = mean(brand_size), sd = sd(brand_size), MAX = max(brand_size), Min = min(brand_size), nf = quantile(brand_size, probs = 0.95))
-d <- data%>%select(brand, pic_size)%>%filter(brand != "X")%>%summarise(mean = mean(pic_size), sd = sd(pic_size), MAX = max(pic_size), Min = min(pic_size), nf = quantile(pic_size, probs = 0.95))
-f <- data%>%select(brand, brand_fix)%>%filter(brand != "X")%>%summarise(mean = mean(brand_fix), sd = sd(brand_fix), MAX = max(brand_fix), Min = min(brand_fix), nf = quantile(brand_fix, probs = 0.95))
-h <- data%>%select(brand, pic_fix)%>%filter(brand != "X")%>%summarise(mean = mean(pic_fix), sd = sd(pic_fix), MAX = max(pic_fix), Min = min(pic_fix), nf = quantile(pic_fix, probs = 0.95))
+Pic_fix_reg <- glm(pic_fix ~ page_num + page_num_sqr + as.factor(page_pos) + brand_size + pic_size
+                   , family = poisson(link = "log"), data = AD_data) 
 
-j <-rbind(a,b,c,d,e,f,g,h)
-l <- c("X","All")
-m <- c("Brand_size","Brand_size","Pic_size","Pic_size","Brand_fix","Brand_fix","Pic_fix","Pic_fix")
-n <- cbind(l,m)
-k <- cbind(n,j)
-k
+recoeff_pic_fix <- exp(coef(Pic_fix_reg))
 
+summary(Pic_fix_reg)
 
-#Regression
-# Poisson Regression
-# BRAND_FIX - Fixation Counts of the Brand Element
-data$quad <- data$page_num*data$page_num
-model1 <- glm(brand_fix ~ brand_size+ pic_size+ page_pos+ page_num+ quad , poisson(link="log"),data = data)
-summary(model1)
-# PIC_FIX - Fixation Counts of the Pic Element
-model2 <- glm(pic_fix ~ brand_size+ pic_size+ page_pos+ page_num+ quad, poisson(link = "log"),data = data)
-summary(model2)
+#poisson regression model for brand fixation count
 
-#Adding predicted values of Brand and Picture fixation basis the above models
-data$bf <- predict(model1, data)
-data$pf <- predict(model2, data)
+brand_fix_reg <- glm(brand_fix ~ page_num + page_num_sqr + as.factor(page_pos) + brand_size + pic_size
+                     , family = poisson(link = "log"), data = AD_data) 
 
-# RECALL_ACCU - Binary Logit Model
-model3 <- glm(recall_accu ~ bf+pf page_pos+ page_num + quad ,binomial(link = "logit"),data = data)
-summary(model3)
-data$RA <- predict(model3, data)
+recoeff_brand_fix <- exp(coef(brand_fix_reg))
 
-#X compared to other similar brands
-p <-  data%>%select(brand, RECALL_TIME, page_pos, page_num, bf, pf, RA)%>%filter(brand == "X" | brand == "a" | brand == "bb" | brand == "u" | brand == "gg")%>%group_by(brand)%>%summarise(page_pos = mean(page_pos), page_num = mean(page_num) ,pic_fix = mean(pf), brand_fix = mean(bf), recall_time = mean(RECALL_TIME), prob = mean(RA))
-p
+summary(brand_fix_reg)
 
-data%>%select(recall_accu, brand)%>%filter(brand == "X")%>%summarise(mean = mean(recall_accu))
+#binomial regression model for recall accuracy
 
+recall_accu_reg <- glm(recall_accu ~ pic_fix + brand_fix + page_num + page_num_sqr + as.factor(page_pos)
+                       , family = binomial(link = "logit"), data = AD_data)
 
+regcoeff_recall_accu <- exp(coef(recall_accu_reg))
+
+summary(recall_accu_reg)
+
+#extracting each brands ad design parameters
+
+Brand_parameters <- AD_data %>% select(c("brand", "page_num", "page_num_sqr", "page_pos")) %>%
+  distinct() %>%
+  mutate(pic_fix = unique(predict.glm(Pic_fix_reg, AD_data, type = "response"))) %>% #adding pic fix estimate
+  mutate(brand_fix = unique(predict.glm(brand_fix_reg, AD_data, type = "response"))) #adding brand fix estimate
+
+#Brand recall accuracy estimates
+
+Brand_parameters$recall_accuracy_est <- predict.glm(recall_accu_reg, Brand_parameters, type = "response")
